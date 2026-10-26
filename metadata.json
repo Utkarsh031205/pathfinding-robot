@@ -1,0 +1,6 @@
+{
+  "name": "Autonomous Robot Navigation Simulator",
+  "description": "Interactive 2D warehouse pathfinding simulator featuring A*, Dijkstra, and Greedy Best-First Search with dynamic obstacle replanning, terrain cost weighting, and performance benchmarking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

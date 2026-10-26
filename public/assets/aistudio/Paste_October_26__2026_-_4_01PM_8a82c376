@@ -1,0 +1,844 @@
+# PROJECT BUILD SPECIFICATION: AUTONOMOUS ROBOT NAVIGATION SIMULATOR
+
+## 1. Your Role and Objective
+
+Act as a senior software engineer, algorithm designer, and UI/UX developer. Build a complete, polished, interactive educational application called **Autonomous Robot Navigation Simulator**.
+
+The application must simulate a robot navigating a two-dimensional warehouse grid containing walls, obstacles, restricted zones, and terrain with different traversal costs. Users must be able to select and compare multiple classical pathfinding algorithms, visualize their search processes, observe the robot moving along the discovered route, introduce dynamic obstacles, and analyze algorithm performance.
+
+This must be a fully functional software project, not a static mockup, a presentation, or a collection of disconnected demonstrations.
+
+Prioritize algorithmic correctness, interactive visualization, modular architecture, reproducibility, and a professional user experience. Do not substitute simplified visual demonstrations for actual pathfinding implementations.
+
+## 2. Core Project Requirements
+
+Implement the following features as an integrated application:
+
+1. Interactive two-dimensional warehouse grid.
+2. Start and destination placement.
+3. Manual placement and removal of obstacles.
+4. Restricted zones and weighted terrain.
+5. Three independently implemented search algorithms:
+   - A* Search
+   - Dijkstra's Algorithm
+   - Greedy Best-First Search
+6. Step-by-step visualization of algorithm exploration.
+7. Animated robot movement along the discovered path.
+8. Dynamic obstacle insertion and route replanning.
+9. Algorithm comparison and benchmarking dashboard.
+10. Search metrics and path-quality analysis.
+11. Interactive controls for simulation speed, grid dimensions, and terrain configuration.
+12. Reset, replay, pause, resume, and step-through functionality.
+13. Automated testing and comprehensive project documentation.
+
+All these components must work together through a shared simulation environment.
+
+## 3. Technology and Project Architecture
+
+Use the following implementation requirements:
+
+- Python 3.12 or newer.
+- Streamlit for the interactive application.
+- NumPy for efficient grid and numerical operations where appropriate.
+- Plotly and/or Matplotlib for visualizations.
+- Pandas for structured experiment results and benchmarking tables.
+- pytest for automated testing.
+- Git and GitHub-compatible project organization.
+
+Use stable, compatible library versions and document them in the dependency manifest.
+
+Keep the search algorithms independent of the user interface. The application must use a modular architecture in which algorithms, environment logic, visualization, simulation execution, and benchmarking are separate components.
+
+Suggested project structure:
+
+    autonomous-robot-navigation/
+    ├── app.py
+    ├── requirements.txt
+    ├── README.md
+    ├── .gitignore
+    ├── src/
+    │   ├── algorithms/
+    │   │   ├── astar.py
+    │   │   ├── dijkstra.py
+    │   │   ├── greedy_best_first.py
+    │   │   ├── heuristics.py
+    │   │   └── common.py
+    │   ├── environment/
+    │   │   ├── grid.py
+    │   │   ├── cell.py
+    │   │   ├── terrain.py
+    │   │   └── obstacles.py
+    │   ├── simulation/
+    │   │   ├── robot.py
+    │   │   ├── simulator.py
+    │   │   └── replanning.py
+    │   ├── visualization/
+    │   │   ├── grid_renderer.py
+    │   │   ├── animation.py
+    │   │   └── charts.py
+    │   ├── benchmarking/
+    │   │   ├── runner.py
+    │   │   └── metrics.py
+    │   └── utils/
+    │       └── validation.py
+    ├── tests/
+    │   ├── test_astar.py
+    │   ├── test_dijkstra.py
+    │   ├── test_greedy.py
+    │   ├── test_grid.py
+    │   ├── test_replanning.py
+    │   └── test_benchmarking.py
+    └── docs/
+        ├── algorithms.md
+        └── architecture.md
+
+You may adjust this structure when technically justified, but preserve clear separation of responsibilities. Avoid putting the entire application in a single Python file.
+
+## 4. Interactive Warehouse Grid
+
+Create a two-dimensional grid representing a warehouse floor.
+
+### Grid configuration
+
+- Allow users to configure grid rows and columns.
+- Provide a reasonable default grid, such as 20 × 30 cells.
+- Enforce sensible minimum and maximum dimensions.
+- Represent every cell with explicit state and traversal-cost information.
+- Support four-directional movement: up, down, left, and right.
+- Prevent diagonal movement.
+- Prevent movement outside grid boundaries.
+- Provide a clear visual distinction between different cell types.
+
+### Cell types
+
+Support these states:
+
+- Empty traversable cell.
+- Start position.
+- Goal position.
+- Static obstacle or wall.
+- Restricted zone.
+- Low-cost terrain.
+- Standard-cost terrain.
+- High-cost terrain.
+- Robot's current position.
+- Explored cell.
+- Frontier cell awaiting exploration.
+- Final path cell.
+- Dynamically introduced obstacle.
+
+Do not allow conflicting cell states. For example, the start and goal cannot occupy a wall, and the robot must never move through an obstacle.
+
+Define a single source of truth for the grid state. Visualization must reflect this state rather than maintain a separate, inconsistent representation.
+
+### Grid interaction
+
+Allow users to:
+
+- Select an editing tool.
+- Click cells to place or remove obstacles.
+- Paint terrain types across multiple cells when practical.
+- Move the start and goal.
+- Generate random obstacles.
+- Generate randomized terrain-cost layouts.
+- Generate reproducible scenarios using a configurable random seed.
+- Clear the grid.
+- Reset only the search visualization without destroying the underlying map.
+- Restore the default scenario.
+
+If direct cell interaction through the chosen visualization library is impractical, implement a clear coordinate-based editing interface with row and column selectors. Do not leave editing controls nonfunctional.
+
+Validate all changes and prevent accidental invalid configurations.
+
+## 5. Pathfinding Algorithms
+
+Implement all three algorithms from scratch. Do not rely on a pathfinding library that performs the core search internally.
+
+All algorithms must share the same environment interface, movement rules, cost model, and result format.
+
+Each algorithm should return a structured result containing:
+
+- Whether a path was found.
+- The resulting path as an ordered list of grid coordinates.
+- The cells expanded during the search.
+- The cells discovered or placed in the frontier.
+- The order in which meaningful search events occurred.
+- Number of expanded nodes.
+- Number of discovered nodes.
+- Number of generated or examined successor states, clearly defined.
+- Total path cost.
+- Path length in movement steps.
+- Execution time.
+- Failure reason when no path exists.
+
+Define metric semantics consistently across algorithms. In particular, distinguish node discoveries, successor examinations, and node expansions.
+
+### 5.1 A* Search
+
+Implement A* using:
+
+    f(n) = g(n) + h(n)
+
+Where:
+
+- g(n) is the accumulated cost from the start to node n.
+- h(n) estimates the remaining cost to the goal.
+- f(n) is the estimated total route cost through n.
+
+Use Manhattan distance for the four-directional grid:
+
+    h(n) = |row(n) - row(goal)|
+         + |col(n) - col(goal)|
+
+When terrain has nonuniform costs, scale the Manhattan heuristic by the minimum permitted movement cost to preserve admissibility.
+
+Requirements:
+
+- Use a priority queue.
+- Maintain best-known g-scores.
+- Track parent pointers for path reconstruction.
+- Handle stale priority-queue entries correctly.
+- Update a node when a better path is discovered.
+- Do not terminate merely because the goal has been discovered; terminate when the goal is validly removed from the priority queue under the algorithm's conditions.
+- Ensure optimality for supported cost models and heuristic assumptions.
+
+Explain how the heuristic influences search behavior.
+
+### 5.2 Dijkstra's Algorithm
+
+Implement Dijkstra's shortest-path algorithm using a priority queue.
+
+Requirements:
+
+- Use accumulated traversal cost as the priority.
+- Do not use a heuristic.
+- Correctly handle nonuniform positive traversal costs.
+- Maintain distance scores and parent pointers.
+- Update priorities when better paths are found.
+- Skip stale queue entries.
+- Terminate when the goal is validly settled.
+- Guarantee an optimal path when a valid route exists and all edge costs are nonnegative.
+
+Use Dijkstra's algorithm as the optimal-cost baseline for comparing the other algorithms.
+
+### 5.3 Greedy Best-First Search
+
+Implement Greedy Best-First Search using:
+
+    priority(n) = h(n)
+
+The algorithm should prioritize nodes that appear geometrically closer to the goal, without considering the accumulated path cost in its priority function.
+
+Requirements:
+
+- Use the same movement rules and Manhattan-distance heuristic.
+- Track visited or discovered nodes to avoid redundant processing.
+- Maintain parent pointers for path reconstruction.
+- Support weighted terrain in the environment.
+- Report the actual cost of the resulting path.
+- Make it clear that Greedy Best-First Search is not guaranteed to find an optimal-cost path.
+
+Do not falsely label a shorter-looking route as cheaper when it crosses expensive terrain.
+
+### 5.4 Shared Algorithm Interface
+
+Create a common interface so the UI can execute any algorithm without algorithm-specific rendering code.
+
+A shared result model should include fields equivalent to:
+
+    found
+    path
+    expanded_nodes
+    discovered_nodes
+    generated_nodes
+    total_cost
+    path_length
+    execution_time
+    search_events
+    error_message
+
+Define an explicit search-event format for visualization, such as node discovery, node expansion, and goal reached.
+
+Use consistent coordinate conventions and cost calculations across the application.
+
+## 6. Terrain Costs and Restricted Zones
+
+The grid must support different traversal costs.
+
+Use configurable positive movement costs. For example:
+
+- Standard terrain: cost 1.
+- Low-cost terrain: cost 0.5 or another configurable positive value.
+- High-cost terrain: cost 5.
+- Very expensive terrain: cost 10.
+- Walls: impassable.
+- Restricted zones: impassable by default, with an optional explicit setting to treat them as high-cost areas instead.
+
+These are illustrative defaults, not hard-coded assumptions.
+
+Document whether the cost belongs to the destination cell or the traversed edge. Use one convention consistently across all algorithms and cost calculations.
+
+Requirements:
+
+- Terrain costs must be nonnegative, and preferably strictly positive for traversable cells.
+- The start cell should not contribute an unintended entry cost.
+- The goal's entry cost must be handled consistently.
+- The heuristic must remain admissible for A*.
+- Dijkstra must use the same cost model.
+- Greedy Best-First Search must report the true weighted cost of its chosen route.
+- Restricted zones must be respected by every algorithm.
+
+Provide a terrain legend and a way to inspect the cost of an individual cell.
+
+## 7. Search Visualization
+
+Create a clear, interactive visualization of the algorithm's internal behavior.
+
+Use a distinct visual encoding for:
+
+- Start.
+- Goal.
+- Robot.
+- Walls.
+- Restricted zones.
+- Each terrain type.
+- Frontier nodes.
+- Expanded nodes.
+- Final route.
+- Newly introduced dynamic obstacles.
+
+Use a legend and avoid relying on color alone. Where practical, provide labels, patterns, symbols, or hover information to distinguish important states.
+
+### Animation controls
+
+Implement:
+
+- Start search.
+- Pause.
+- Resume.
+- Step forward one search event.
+- Restart search.
+- Reset visualization.
+- Adjustable playback speed.
+- Instant execution mode.
+- Search progress indicator.
+
+The visualization must animate actual recorded search events. Do not fabricate an exploration pattern after the algorithm has already computed a path.
+
+Ensure the interface remains responsive during larger searches. Avoid unnecessarily rerunning the entire search on every UI interaction.
+
+Use Streamlit session state or an equivalent state-management mechanism to retain the grid, selected algorithm, event history, current animation index, simulation status, and benchmark results.
+
+If Streamlit reruns the application after a control interaction, preserve simulation progress instead of resetting it unexpectedly.
+
+Implement playback using a reliable approach compatible with the selected Streamlit version. Avoid uncontrolled background loops, excessive reruns, or unbounded resource consumption.
+
+## 8. Robot Movement Simulation
+
+After a route is found, animate a robot traversing the route from start to goal.
+
+The robot must follow the path returned by the selected algorithm.
+
+Requirements:
+
+- Display the robot's current grid position.
+- Move one grid cell per simulation step.
+- Respect obstacles and movement constraints.
+- Allow pausing and resuming.
+- Allow playback speed adjustment.
+- Display completed movement steps.
+- Display remaining steps.
+- Show total route cost.
+- Show the route taken by the robot.
+- Distinguish the planned path from the robot's traversed path.
+- Detect whether the route has become invalid because of an environmental change.
+
+Separate search visualization from robot-motion visualization. Completing the search must not automatically imply that the robot has already reached the goal.
+
+Provide meaningful states such as idle, searching, path found, moving, paused, replanning, completed, and no path found.
+
+## 9. Dynamic Obstacles and Replanning
+
+This is a core feature and must be implemented as a real simulation capability.
+
+Allow the user to introduce a new obstacle while the robot is navigating.
+
+Example scenario:
+
+1. The robot receives a route from the start to the goal.
+2. The robot begins traversing the route.
+3. The user introduces an obstacle on a cell ahead of the robot.
+4. The simulator detects that the remaining route is no longer valid.
+5. The robot pauses before entering the blocked cell.
+6. The simulator invokes a pathfinding algorithm again using the updated map.
+7. If another route exists, the robot follows the newly calculated route.
+8. If no route exists, the robot stops and displays a clear explanation.
+
+Requirements:
+
+- Never allow the robot to pass through a newly blocked cell.
+- Do not retroactively move the robot to another position.
+- Preserve the robot's current location during replanning.
+- Treat the robot's current cell as traversable when appropriate.
+- Replan from the current position to the existing goal.
+- Update the planned route and visualization.
+- Track the number of replanning operations.
+- Measure replanning time.
+- Display the original route and revised route when useful.
+- Support repeated dynamic changes during a simulation.
+- Handle an obstacle appearing on the goal cell through a clearly defined validation rule.
+- Handle cases where the goal becomes unreachable.
+
+Provide controls for both manually introducing obstacles and generating reproducible dynamic-obstacle scenarios.
+
+The baseline replanning strategy may rerun A*, Dijkstra, or Greedy Best-First Search from the robot's current location. Make this behavior explicit in the UI and documentation.
+
+Do not claim to implement incremental replanning algorithms such as D* or D* Lite unless they are actually implemented and tested.
+
+## 10. Algorithm Comparison Dashboard
+
+Build a benchmarking dashboard to compare A*, Dijkstra, and Greedy Best-First Search.
+
+Provide two modes:
+
+### Mode A: Individual execution
+
+Allow users to run one selected algorithm and inspect its search process.
+
+### Mode B: Controlled comparison
+
+Run all three algorithms on the same grid, with identical start and goal positions, movement rules, terrain costs, and obstacle configuration.
+
+Each algorithm must receive an equivalent, immutable snapshot of the environment.
+
+Do not let one algorithm's visualization or execution mutate the environment used by another algorithm.
+
+Display a comparison table containing:
+
+- Algorithm name.
+- Path found.
+- Path length in steps.
+- Total traversal cost.
+- Expanded nodes.
+- Discovered nodes.
+- Generated nodes or successor examinations.
+- Execution time.
+- Replanning count when relevant.
+- Replanning time when relevant.
+
+Include visual comparisons of:
+
+- Execution time.
+- Expanded-node count.
+- Path length.
+- Total traversal cost.
+
+Use bar charts for straightforward algorithm comparisons. Use a clear table for exact numerical values.
+
+Interpret the results carefully:
+
+- A* should generally explore fewer nodes than Dijkstra when its heuristic is informative, although this is not guaranteed in every map.
+- Dijkstra should produce a minimum-cost path under the defined cost model.
+- Greedy Best-First Search may reach a goal quickly but can produce a higher-cost route.
+- Execution time depends on the grid, implementation, hardware, and runtime overhead.
+- The number of expanded nodes and the total route cost are not interchangeable metrics.
+
+Do not hard-code illustrative benchmark values as if they were real results.
+
+### Repeated experiments
+
+Support running experiments across multiple maps or random seeds.
+
+Allow the user to configure:
+
+- Number of scenarios.
+- Grid size.
+- Obstacle density.
+- Terrain-cost distribution.
+- Random seed.
+- Start and goal placement rules.
+
+Aggregate the results and display mean and, where appropriate, median execution time, average expanded nodes, average route cost, success rate, and other relevant metrics.
+
+Separate algorithm computation time from UI rendering and animation time.
+
+Use high-resolution timing facilities and repeat experiments when necessary to reduce measurement noise.
+
+For each experiment, record enough metadata to reproduce the scenario.
+
+Allow benchmark results to be downloaded as CSV.
+
+## 11. Interface and User Experience
+
+Design a professional, modern dashboard suitable for a university computer science project demonstration.
+
+The interface should be intuitive to a user who understands basic pathfinding but is not familiar with the code.
+
+### Recommended layout
+
+**Header**
+
+- Project name: Autonomous Robot Navigation Simulator.
+- Short description.
+- Current simulation status.
+
+**Sidebar: Configuration**
+
+- Grid dimensions.
+- Selected algorithm.
+- Editing tools.
+- Terrain-cost settings.
+- Obstacle density.
+- Random seed.
+- Simulation speed.
+- Search and movement controls.
+
+**Main workspace**
+
+- Large interactive warehouse grid.
+- Search and robot animation.
+- Current route and simulation state.
+- Relevant legends.
+
+**Metrics section**
+
+- Path found.
+- Path length.
+- Total cost.
+- Expanded nodes.
+- Execution time.
+- Replanning statistics.
+
+**Comparison section**
+
+- Algorithm comparison table.
+- Performance charts.
+- Benchmark configuration.
+- Experiment results.
+
+**Educational section**
+
+- Explanation of the selected algorithm.
+- Its priority function.
+- How its heuristic works.
+- Whether it guarantees an optimal path.
+- Interpretation of the current search visualization.
+- Complexity analysis and practical trade-offs.
+
+Use consistent spacing, typography, alignment, and visual hierarchy. Make the grid large enough to inspect comfortably and keep important controls visible without overwhelming the main workspace.
+
+Provide clear success, warning, and error messages.
+
+Avoid excessive decorative animations and unnecessary interface elements. The application must remain focused on understanding and experimenting with robot navigation.
+
+## 12. Educational Explanations and Algorithm Analysis
+
+Include a concise reference section explaining the theory behind the three algorithms.
+
+Discuss:
+
+### A*
+
+- Evaluation function.
+- Heuristic function.
+- Admissibility.
+- Consistency where relevant.
+- Optimality conditions.
+- Practical trade-offs.
+
+### Dijkstra
+
+- Uniform-cost exploration.
+- Relaxation of distances.
+- Priority queues.
+- Optimality under nonnegative edge costs.
+- Relationship to A* when the heuristic is zero.
+
+### Greedy Best-First Search
+
+- Heuristic-driven exploration.
+- Why it can appear fast.
+- Why it may produce nonoptimal paths.
+- How terrain costs affect actual route quality.
+
+Explain the difference between:
+
+- Search optimality.
+- Path length.
+- Weighted path cost.
+- Search efficiency.
+- Robot execution time.
+- Replanning performance.
+
+Include standard theoretical time and space complexity where applicable, with assumptions stated clearly. Distinguish theoretical complexity from observed benchmark results.
+
+For the conventional binary-heap implementation, explain the commonly cited worst-case bound of O((V + E) log V) for Dijkstra and the corresponding general graph-search bounds where applicable. Do not claim a single universal complexity for every implementation of A* or Greedy Best-First Search without stating the assumptions.
+
+## 13. Validation and Error Handling
+
+Implement validation for all user inputs and simulation transitions.
+
+Handle the following cases:
+
+- Start and goal are identical.
+- Start is blocked.
+- Goal is blocked.
+- No route exists.
+- Grid dimensions are invalid.
+- Obstacle density is invalid.
+- Terrain costs are invalid.
+- A user attempts to move the robot through a wall.
+- A dynamic obstacle blocks the current planned route.
+- A dynamic obstacle is placed on the robot's current cell.
+- A dynamic obstacle is placed on the goal.
+- The grid is edited while a search is running.
+- The user resets or changes the scenario during playback.
+- A benchmark scenario cannot be generated.
+- A search is interrupted or returns an unexpected result.
+
+Define clear behavior for each situation.
+
+Never silently report a route as successful when no valid path exists.
+
+Do not display stale search results after the environment changes. Invalidate or recompute results when relevant grid data changes.
+
+Use defensive checks without hiding programming errors behind broad exception handlers.
+
+## 14. Automated Testing
+
+Create a comprehensive pytest suite.
+
+### Grid and environment tests
+
+Verify:
+
+- Grid construction.
+- Coordinate validity.
+- Obstacle placement.
+- Terrain costs.
+- Start and goal validation.
+- Neighbor generation.
+- Boundary handling.
+- Restricted-zone handling.
+
+### Algorithm tests
+
+For each algorithm, verify:
+
+- A simple straight-line route.
+- A route requiring a detour.
+- A fully blocked route.
+- Start equal to goal.
+- A blocked goal.
+- A blocked start.
+- A route through weighted terrain.
+- An optimal-cost route where the algorithm guarantees optimality.
+- Correct path reconstruction.
+- Correct metric calculations.
+
+For A* and Dijkstra, verify that the resulting path cost matches the optimal cost on supported test maps.
+
+Do not require Greedy Best-First Search to match the optimal cost in every scenario.
+
+### Replanning tests
+
+Verify:
+
+- A new obstacle blocks the original route.
+- A valid alternate route is discovered.
+- The robot's position is preserved.
+- The robot never enters a blocked cell.
+- Replanning succeeds after multiple obstacle changes.
+- The simulation stops safely when no alternative route exists.
+- The goal and current robot position are handled correctly.
+
+### Benchmark tests
+
+Verify:
+
+- All algorithms receive the same environment snapshot.
+- Results are structured consistently.
+- Metrics use the same definitions.
+- Random seeds reproduce the same scenarios.
+- CSV exports contain the expected columns.
+- Repeated experiments aggregate results correctly.
+
+Test actual application-facing behavior where practical, not just isolated helper functions.
+
+## 15. Performance and Reliability
+
+The application must handle ordinary classroom demonstration grids smoothly.
+
+Implement sensible limits for grid size, animation-event storage, benchmark iterations, and rendering frequency.
+
+Use efficient data structures:
+
+- Priority queues for search frontiers.
+- Sets for membership checks.
+- Dictionaries or arrays for distance and parent information.
+- Appropriate numerical arrays for grid data when beneficial.
+
+Avoid unnecessary full-grid copies, repeated computations, and excessively frequent UI rerenders.
+
+Use immutable environment snapshots for benchmarking and explicit state transitions for simulation execution.
+
+Ensure resetting the application clears transient simulation state without corrupting configuration or previous results unintentionally.
+
+Do not sacrifice algorithmic correctness for visual speed.
+
+## 16. Documentation
+
+Create a detailed README containing:
+
+1. Project overview.
+2. Problem statement.
+3. Motivation and objectives.
+4. Features.
+5. Technology stack.
+6. Installation instructions.
+7. How to run the application.
+8. User guide.
+9. Algorithm explanations.
+10. Weighted-terrain model.
+11. Dynamic-obstacle and replanning behavior.
+12. Benchmarking methodology.
+13. Testing instructions.
+14. Project structure.
+15. Known limitations.
+16. Future enhancements.
+
+Provide exact commands for setting up a Python virtual environment, installing dependencies, launching Streamlit, and running tests.
+
+Document assumptions and metric definitions.
+
+Add an architecture document explaining how the grid, search algorithms, simulation engine, replanning module, visualization layer, and benchmark runner communicate.
+
+Include comments for nontrivial algorithmic decisions rather than commenting every line of straightforward code.
+
+## 17. Optional Enhancements
+
+Implement these only after the entire core application is functional and tested:
+
+- Additional terrain brushes.
+- Multiple warehouse layouts.
+- Preset demonstration scenarios.
+- Side-by-side search animations.
+- A heatmap showing search frequency across repeated runs.
+- Exportable experiment reports.
+- Configurable movement costs.
+- A configurable animation timeline.
+- A future extension point for incremental replanning algorithms such as D* Lite.
+
+Do not implement optional enhancements at the expense of core requirements.
+
+## 18. Implementation Workflow
+
+Follow this sequence:
+
+### Phase 1: Foundation
+
+- Set up the project structure.
+- Create the grid model.
+- Define cell states and traversal costs.
+- Implement validation and neighbor generation.
+- Write initial environment tests.
+
+### Phase 2: Algorithms
+
+- Implement Dijkstra first as the optimal-cost baseline.
+- Implement A* with an admissible heuristic.
+- Implement Greedy Best-First Search.
+- Standardize their result formats and event histories.
+- Write and run algorithm tests.
+
+### Phase 3: Visualization
+
+- Build the Streamlit layout.
+- Render the grid and terrain legend.
+- Add grid-editing tools.
+- Implement search-event playback.
+- Add pause, resume, step, reset, and speed controls.
+
+### Phase 4: Robot Simulation
+
+- Implement robot movement.
+- Animate the robot along the computed path.
+- Track its current position and movement state.
+- Validate movement against the environment.
+
+### Phase 5: Dynamic Replanning
+
+- Add runtime obstacle insertion.
+- Detect route invalidation.
+- Replan from the robot's current location.
+- Implement safe stopping when no valid route remains.
+- Test repeated environmental changes.
+
+### Phase 6: Benchmarking
+
+- Build the controlled comparison runner.
+- Add metrics and timing.
+- Create tables and charts.
+- Add reproducible multi-scenario experiments.
+- Implement CSV export.
+
+### Phase 7: Quality Assurance
+
+- Run the complete test suite.
+- Test edge cases and failure states.
+- Fix algorithmic and visualization inconsistencies.
+- Verify that application state survives ordinary Streamlit reruns.
+- Check performance on larger supported grids.
+
+### Phase 8: Documentation and Delivery
+
+- Complete the README and architecture documentation.
+- Ensure dependency installation works from a clean environment.
+- Verify the application launches using the documented command.
+- Run the complete test suite.
+- Provide a concise summary of completed features and any remaining limitations.
+
+## 19. Acceptance Criteria
+
+The project is considered complete only when all the following conditions are satisfied:
+
+1. The application launches successfully.
+2. Users can configure and edit a warehouse grid.
+3. All three algorithms execute independently and correctly.
+4. The algorithms follow identical movement and traversal-cost rules.
+5. A* and Dijkstra return minimum-cost paths under the documented assumptions.
+6. Greedy Best-First Search is implemented using heuristic-driven priorities and reports actual route cost.
+7. Search exploration can be visualized step by step.
+8. The robot moves along a valid route.
+9. Dynamic obstacles can trigger safe, functional replanning.
+10. The robot never traverses an impassable cell.
+11. Algorithm comparisons use equivalent environment snapshots.
+12. Metrics are computed from actual executions rather than fabricated values.
+13. Benchmark results are exportable.
+14. Important edge cases are handled explicitly.
+15. Automated tests cover algorithms, environment behavior, replanning, and benchmarking.
+16. The README contains working setup and execution instructions.
+17. The implementation is modular, readable, and maintainable.
+18. There are no placeholder buttons, fake charts, mocked search results, or unfinished core features.
+
+## 20. Final Instructions to the Coding Agent
+
+Build the actual working application, not merely a plan for building it.
+
+Begin by inspecting the available workspace and creating the required project files. Implement the application in small, verifiable stages, running tests and fixing errors as you progress.
+
+Do not stop after creating the UI. Do not simulate algorithm results with hard-coded paths. Do not leave core features as TODO comments. Do not claim tests passed unless they were actually executed successfully.
+
+Where a requirement is ambiguous, choose a technically sound default, document the decision, and continue without unnecessary interruptions.
+
+If the environment provides a terminal, use it to install dependencies, execute tests, and launch or validate the application when supported. If deployment capabilities are available, prepare the application for deployment and document the required configuration.
+
+At completion, provide:
+
+- A summary of the implemented functionality.
+- The final project file structure.
+- Exact installation and launch commands.
+- Test results from the actual test run.
+- Any remaining limitations or incomplete requirements.
+
+**Final objective:** Deliver a functional, academically defensible, visually polished robot-navigation simulator that demonstrates the differences between A*, Dijkstra's Algorithm, and Greedy Best-First Search through real algorithm execution, interactive experimentation, dynamic replanning, and reproducible performance analysis.
